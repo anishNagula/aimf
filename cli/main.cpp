@@ -7,6 +7,7 @@
 #include "../include/aimf.hpp"
 #include "../include/codec.hpp"
 #include "../codecs/dummy_codec.cpp"
+#include "../include/compression.hpp"
 
 using namespace aimf;
 
@@ -77,7 +78,7 @@ int main(int argc, char** argv) {
     stream.stream_type = VIDEO_TOKENS;
     stream.codec_id = CODEC_DUMMY;
     stream.token_rate = 30;
-    stream.compression = 0;
+    stream.compression = 1;
     stream.data_offset = 0;
 
     write_stream_table(out, &stream, 1);
@@ -88,7 +89,7 @@ int main(int argc, char** argv) {
     {
       uint64_t chunk_offset = out.tellp();
 
-      write_chunk(out, 0, i * 1000000, chunks[i]);
+      write_chunk(out, 0, i * 1000000, chunks[i], true);
 
       ChunkIndexEntry entry;
 
@@ -152,11 +153,25 @@ int main(int argc, char** argv) {
       ChunkHeader ch;
       in.read(reinterpret_cast<char*>(&ch), sizeof(ch));
 
-      std::vector<uint16_t> tokens(ch.token_count);
+      std::vector<uint16_t> tokens;
 
-      in.read(reinterpret_cast<char*>(tokens.data()),
-              ch.token_count * sizeof(uint16_t));
+      if (stream.compression == 1) {
+        std::vector<char> compressed(ch.compressed_size);
 
+        in.read(compressed.data(), ch.compressed_size);
+
+        tokens = zstd_decompress(
+            compressed,
+            ch.token_count * sizeof(uint16_t)
+        );
+      } else {
+        
+        tokens.resize(ch.token_count);
+        in.read(reinterpret_cast<char*>(tokens.data()),
+            ch.token_count * sizeof(uint16_t));
+      }
+
+      
       all_tokens.insert(
           all_tokens.end(),
           tokens.begin(),

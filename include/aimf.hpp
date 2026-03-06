@@ -40,6 +40,7 @@ struct ChunkHeader {
   uint8_t stream_id;
   uint64_t timestamp_us;
   uint32_t token_count;
+  uint32_t compressed_size;
 };
 
 struct ChunkIndexEntry {
@@ -54,7 +55,8 @@ void write_chunk(
     std::ofstream &out,
     uint8_t stream_id,
     uint64_t timestamp_us,
-    std::vector<uint16_t> &tokens);
+    std::vector<uint16_t> &tokens,
+    bool compress);
 
 void write_chunk_index(
     std::ofstream &out,
