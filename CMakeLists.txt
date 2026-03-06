@@ -11,3 +11,7 @@ add_executable(aimf
     container/stream_table.cpp
     container/chunk.cpp
 )
+
+add_executable(aimf_inspect
+    tools/inspect.cpp
+)

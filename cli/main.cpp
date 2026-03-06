@@ -20,14 +20,17 @@ int main(int argc, char** argv) {
     return 1;
   }
 
+  // -------- HEADER --------
   AIMFHeader header;
   std::memcpy(header.magic, MAGIC, 4);
   header.version = VERSION;
   header.stream_count = 1;
   header.header_size = sizeof(AIMFHeader);
+  header.index_offset = 0;   // placeholder
 
   out.write(reinterpret_cast<char*>(&header), sizeof(header));
 
+  // -------- STREAM TABLE --------
   StreamDesc stream;
 
   stream.stream_id = 0;
@@ -39,25 +42,41 @@ int main(int argc, char** argv) {
 
   write_stream_table(out, &stream, 1);
 
+  // -------- CHUNKS --------
   std::vector<ChunkIndexEntry> index;
 
-  uint64_t chunk_offset = out.tellp();
+  for (int t = 0; t < 5; t++)
+  {
+    uint64_t chunk_offset = out.tellp();
 
-  std::vector<uint16_t> tokens = {
-    882, 12, 991, 443, 33
-  };
+    std::vector<uint16_t> tokens = {
+      (uint16_t)(100 + t),
+      (uint16_t)(200 + t),
+      (uint16_t)(300 + t),
+      (uint16_t)(400 + t),
+      (uint16_t)(500 + t)
+    };
 
-  write_chunk(out, 0, 0, tokens);
+    write_chunk(out, 0, t * 1000000, tokens);
 
-  ChunkIndexEntry entry;
-  entry.stream_id = 0;
-  entry.timestamp_us = 0;
-  entry.file_offset = chunk_offset;
+    ChunkIndexEntry entry;
+    entry.stream_id = 0;
+    entry.timestamp_us = t * 1000000;
+    entry.file_offset = chunk_offset;
 
-  index.push_back(entry);
+    index.push_back(entry);
+  }
+
+  // -------- WRITE INDEX --------
+  uint64_t index_offset = out.tellp();
 
   write_chunk_index(out, index);
 
-  std::cout << "AIMF file created\n";
+  // -------- UPDATE HEADER --------
+  header.index_offset = index_offset;
 
+  out.seekp(0);
+  out.write(reinterpret_cast<char*>(&header), sizeof(header));
+
+  std::cout << "AIMF file created\n";
 }

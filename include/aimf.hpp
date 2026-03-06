@@ -18,6 +18,7 @@ struct AIMFHeader {
   uint16_t version;
   uint16_t stream_count;
   uint16_t header_size;
+  uint64_t index_offset;
 };
 
 struct StreamDesc {
