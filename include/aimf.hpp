@@ -13,6 +13,12 @@ enum StreamType : uint8_t {
   METADATA = 2
 };
 
+enum CodecID : uint16_t {
+    CODEC_ENCODEC = 1,
+    CODEC_VQGAN = 2,
+    CODEC_DUMMY = 999
+};
+
 struct AIMFHeader {
   char magic[4];
   uint16_t version;

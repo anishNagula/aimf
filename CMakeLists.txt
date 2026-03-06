@@ -10,8 +10,13 @@ add_executable(aimf
     container/header.cpp
     container/stream_table.cpp
     container/chunk.cpp
+    codecs/dummy_codec.cpp
 )
 
 add_executable(aimf_inspect
     tools/inspect.cpp
+)
+
+add_executable(codec_test
+    tools/test_codec.cpp
 )
