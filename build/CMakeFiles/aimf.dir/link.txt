@@ -1,1 +1,0 @@
-/usr/bin/c++  -arch arm64 -Wl,-search_paths_first -Wl,-headerpad_max_install_names -L/opt/homebrew/opt/llvm/lib CMakeFiles/aimf.dir/cli/main.cpp.o CMakeFiles/aimf.dir/container/header.cpp.o CMakeFiles/aimf.dir/container/stream_table.cpp.o CMakeFiles/aimf.dir/container/chunk.cpp.o -o aimf
