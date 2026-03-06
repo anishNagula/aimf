@@ -1,0 +1,13 @@
+# Build folder
+build/
+# macOS
+• DS_Store
+# CMake
+CMakeFiles/
+CMakeCache.txt
+cmake_install. cmake
+Makefile
+# Whisper build artifacts
+engine/whisper/build/
+# Model files (keep out of repo)
+*.bin
