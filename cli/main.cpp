@@ -77,34 +77,51 @@ int main(int argc, char** argv)
             return 1;
         }
 
+        // HEADER
+
         AIMFHeader header;
 
         std::memcpy(header.magic, MAGIC, 4);
         header.version = VERSION;
-        header.stream_count = 1;
+        header.stream_count = 2;
         header.header_size = sizeof(AIMFHeader);
         header.stream_table_offset = sizeof(AIMFHeader);
         header.index_offset = 0;
 
         out.write(reinterpret_cast<char*>(&header), sizeof(header));
 
-        StreamDesc stream;
+        // STREAM TABLE
 
-        stream.stream_id = 0;
-        stream.stream_type = VIDEO_TOKENS;
-        stream.codec_id = codec_id;
-        stream.token_rate = 30;
-        stream.compression = 1;
-        stream.data_offset = 0;
+        StreamDesc streams[2];
 
-        write_stream_table(out, &stream, 1);
+        streams[0].stream_id = 0;
+        streams[0].stream_type = VIDEO_TOKENS;
+        streams[0].codec_id = codec_id;
+        streams[0].token_rate = 30;
+        streams[0].compression = 1;
+        streams[0].data_offset = 0;
+
+        streams[1].stream_id = 1;
+        streams[1].stream_type = METADATA;
+        streams[1].codec_id = 0;
+        streams[1].token_rate = 0;
+        streams[1].compression = 0;
+        streams[1].data_offset = 0;
+
+        write_stream_table(out, streams, 2);
+
+        // METADATA STREAM
 
         auto metadata = encode_metadata("example", chunks.size());
+
+        uint64_t meta_offset = out.tellp();
 
         uint32_t meta_size = metadata.size();
 
         out.write(reinterpret_cast<char*>(&meta_size), sizeof(meta_size));
         out.write(reinterpret_cast<char*>(metadata.data()), meta_size);
+
+        // VIDEO TOKEN CHUNKS
 
         std::vector<ChunkIndexEntry> index;
 
@@ -122,6 +139,8 @@ int main(int argc, char** argv)
 
             index.push_back(entry);
         }
+
+        // INDEX
 
         uint64_t index_offset = out.tellp();
 
@@ -157,9 +176,7 @@ int main(int argc, char** argv)
 
         in.read(reinterpret_cast<char*>(&header), sizeof(header));
 
-        // --------------------------
-        // READ STREAM TABLE
-        // --------------------------
+        // STREAM TABLE
 
         in.seekg(header.stream_table_offset);
 
@@ -170,11 +187,9 @@ int main(int argc, char** argv)
             in.read(reinterpret_cast<char*>(&streams[i]), sizeof(StreamDesc));
         }
 
-        StreamDesc& stream = streams[0];
+        StreamDesc& video_stream = streams[0];
 
-        // --------------------------
-        // READ METADATA
-        // --------------------------
+        // METADATA
 
         uint32_t meta_size;
 
@@ -184,7 +199,7 @@ int main(int argc, char** argv)
 
         in.read(reinterpret_cast<char*>(metadata.data()), meta_size);
 
-        Codec* codec = create_codec(stream.codec_id);
+        Codec* codec = create_codec(video_stream.codec_id);
 
         if (!codec)
         {
@@ -192,9 +207,7 @@ int main(int argc, char** argv)
             return 1;
         }
 
-        // --------------------------
-        // READ INDEX
-        // --------------------------
+        // INDEX
 
         in.seekg(header.index_offset);
 
@@ -221,7 +234,7 @@ int main(int argc, char** argv)
 
             std::vector<uint16_t> tokens;
 
-            if (stream.compression == 1)
+            if (video_stream.compression == 1)
             {
                 std::vector<char> compressed(ch.compressed_size);
 
