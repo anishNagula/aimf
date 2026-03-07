@@ -17,9 +17,10 @@ add_executable(aimf
     container/chunk.cpp
     container/compression.cpp
     codecs/dummy_codec.cpp
+    codecs/codec_factory.cpp
 )
 
-target_link_libraries(aimf zstd)
+target_link_libraries(aimf zstd cbor)
 
 add_executable(aimf_inspect
     tools/inspect.cpp
