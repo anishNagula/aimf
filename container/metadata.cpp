@@ -1,11 +1,12 @@
 #include <vector>
 #include <string>
+#include <cstdint>
 #include <cbor.h>
 
 std::vector<uint8_t> encode_metadata(
   const std::string& title,
   uint64_t duration
-  )
+)
 {
   cbor_item_t* root = cbor_new_definite_map(2);
 
@@ -25,7 +26,7 @@ std::vector<uint8_t> encode_metadata(
 
   unsigned char* buffer;
   size_t size;
-  
+
   cbor_serialize_alloc(root, &buffer, &size);
 
   std::vector<uint8_t> data(buffer, buffer + size);

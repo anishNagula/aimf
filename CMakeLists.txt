@@ -16,6 +16,7 @@ add_executable(aimf
     container/stream_table.cpp
     container/chunk.cpp
     container/compression.cpp
+    container/metadata.cpp
     codecs/dummy_codec.cpp
     codecs/codec_factory.cpp
 )

@@ -8,6 +8,7 @@
 #include "../include/codec.hpp"
 #include "../include/codec_factory.hpp"
 #include "../include/compression.hpp"
+#include "../include/metadata.hpp"
 
 using namespace aimf;
 
@@ -23,9 +24,9 @@ int main(int argc, char** argv)
 
     std::string command = argv[1];
 
-    // ========================================
+    // ======================================================
     // ENCODE
-    // ========================================
+    // ======================================================
     if (command == "encode")
     {
         std::string input_file = argv[2];
@@ -77,17 +78,20 @@ int main(int argc, char** argv)
         }
 
         // HEADER
+
         AIMFHeader header;
 
         std::memcpy(header.magic, MAGIC, 4);
         header.version = VERSION;
         header.stream_count = 1;
         header.header_size = sizeof(AIMFHeader);
+        header.stream_table_offset = sizeof(AIMFHeader);
         header.index_offset = 0;
 
         out.write(reinterpret_cast<char*>(&header), sizeof(header));
 
         // STREAM TABLE
+
         StreamDesc stream;
 
         stream.stream_id = 0;
@@ -99,7 +103,17 @@ int main(int argc, char** argv)
 
         write_stream_table(out, &stream, 1);
 
+        // METADATA
+
+        auto metadata = encode_metadata("example", chunks.size());
+
+        uint32_t meta_size = metadata.size();
+
+        out.write(reinterpret_cast<char*>(&meta_size), sizeof(meta_size));
+        out.write(reinterpret_cast<char*>(metadata.data()), meta_size);
+
         // CHUNKS
+
         std::vector<ChunkIndexEntry> index;
 
         for (size_t i = 0; i < chunks.size(); i++)
@@ -118,6 +132,7 @@ int main(int argc, char** argv)
         }
 
         // INDEX
+
         uint64_t index_offset = out.tellp();
 
         write_chunk_index(out, index);
@@ -132,9 +147,9 @@ int main(int argc, char** argv)
         std::cout << "AIMF file created\n";
     }
 
-    // ========================================
+    // ======================================================
     // DECODE
-    // ========================================
+    // ======================================================
     else if (command == "decode")
     {
         std::string input_file = argv[2];
@@ -149,22 +164,37 @@ int main(int argc, char** argv)
         }
 
         AIMFHeader header;
+
         in.read(reinterpret_cast<char*>(&header), sizeof(header));
 
+        in.seekg(header.stream_table_offset);
+
         StreamDesc stream;
+
         in.read(reinterpret_cast<char*>(&stream), sizeof(stream));
+
+        // READ METADATA
+
+        uint32_t meta_size;
+
+        in.read(reinterpret_cast<char*>(&meta_size), sizeof(meta_size));
+
+        std::vector<uint8_t> metadata(meta_size);
+
+        in.read(reinterpret_cast<char*>(metadata.data()), meta_size);
 
         Codec* codec = create_codec(stream.codec_id);
 
         if (!codec)
         {
-            std::cerr << "Codec not supported\n";
+            std::cerr << "Unsupported codec\n";
             return 1;
         }
 
         in.seekg(header.index_offset);
 
         uint32_t index_count;
+
         in.read(reinterpret_cast<char*>(&index_count), sizeof(index_count));
 
         std::vector<ChunkIndexEntry> index(index_count);
@@ -181,6 +211,7 @@ int main(int argc, char** argv)
             in.seekg(entry.file_offset);
 
             ChunkHeader ch;
+
             in.read(reinterpret_cast<char*>(&ch), sizeof(ch));
 
             std::vector<uint16_t> tokens;
@@ -199,9 +230,8 @@ int main(int argc, char** argv)
             {
                 tokens.resize(ch.token_count);
 
-                in.read(
-                    reinterpret_cast<char*>(tokens.data()),
-                    ch.token_count * sizeof(uint16_t));
+                in.read(reinterpret_cast<char*>(tokens.data()),
+                        ch.token_count * sizeof(uint16_t));
             }
 
             all_tokens.insert(
