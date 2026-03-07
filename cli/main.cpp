@@ -77,8 +77,6 @@ int main(int argc, char** argv)
             return 1;
         }
 
-        // HEADER
-
         AIMFHeader header;
 
         std::memcpy(header.magic, MAGIC, 4);
@@ -89,8 +87,6 @@ int main(int argc, char** argv)
         header.index_offset = 0;
 
         out.write(reinterpret_cast<char*>(&header), sizeof(header));
-
-        // STREAM TABLE
 
         StreamDesc stream;
 
@@ -103,16 +99,12 @@ int main(int argc, char** argv)
 
         write_stream_table(out, &stream, 1);
 
-        // METADATA
-
         auto metadata = encode_metadata("example", chunks.size());
 
         uint32_t meta_size = metadata.size();
 
         out.write(reinterpret_cast<char*>(&meta_size), sizeof(meta_size));
         out.write(reinterpret_cast<char*>(metadata.data()), meta_size);
-
-        // CHUNKS
 
         std::vector<ChunkIndexEntry> index;
 
@@ -130,8 +122,6 @@ int main(int argc, char** argv)
 
             index.push_back(entry);
         }
-
-        // INDEX
 
         uint64_t index_offset = out.tellp();
 
@@ -167,13 +157,24 @@ int main(int argc, char** argv)
 
         in.read(reinterpret_cast<char*>(&header), sizeof(header));
 
+        // --------------------------
+        // READ STREAM TABLE
+        // --------------------------
+
         in.seekg(header.stream_table_offset);
 
-        StreamDesc stream;
+        std::vector<StreamDesc> streams(header.stream_count);
 
-        in.read(reinterpret_cast<char*>(&stream), sizeof(stream));
+        for (uint16_t i = 0; i < header.stream_count; i++)
+        {
+            in.read(reinterpret_cast<char*>(&streams[i]), sizeof(StreamDesc));
+        }
 
+        StreamDesc& stream = streams[0];
+
+        // --------------------------
         // READ METADATA
+        // --------------------------
 
         uint32_t meta_size;
 
@@ -190,6 +191,10 @@ int main(int argc, char** argv)
             std::cerr << "Unsupported codec\n";
             return 1;
         }
+
+        // --------------------------
+        // READ INDEX
+        // --------------------------
 
         in.seekg(header.index_offset);
 
