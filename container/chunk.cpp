@@ -5,7 +5,7 @@
 
 namespace aimf {
 
-void write_chunk(
+uint32_t write_chunk(
     std::ofstream &out,
     uint8_t stream_id,
     uint64_t timestamp_us,
@@ -17,6 +17,8 @@ void write_chunk(
     header.stream_id = stream_id;
     header.timestamp_us = timestamp_us;
     header.token_count = tokens.size();
+
+    uint64_t start = out.tellp();
 
     if (compress) {
 
@@ -38,6 +40,10 @@ void write_chunk(
             reinterpret_cast<char*>(tokens.data()),
             tokens.size() * sizeof(uint16_t));
     }
+
+    uint64_t end = out.tellp();
+
+    return end - start;
 }
 
 void write_chunk_index(

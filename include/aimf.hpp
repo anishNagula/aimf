@@ -28,6 +28,11 @@ struct AIMFHeader {
   uint64_t index_offset;
 };
 
+struct StreamIndex {
+  uint8_t stream_id;
+  uint32_t entry_count;
+};
+
 struct StreamDesc {
   uint8_t stream_id;
   uint8_t stream_type;
@@ -48,11 +53,12 @@ struct ChunkIndexEntry {
   uint8_t stream_id;
   uint64_t timestamp_us;
   uint64_t file_offset;
+  uint32_t chunk_size;
 };
 
 void write_stream_table(std::ofstream &out, StreamDesc* streams, uint16_t count);
 
-void write_chunk(
+uint32_t write_chunk(
     std::ofstream &out,
     uint8_t stream_id,
     uint64_t timestamp_us,

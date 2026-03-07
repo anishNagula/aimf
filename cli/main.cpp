@@ -77,7 +77,7 @@ int main(int argc, char** argv)
             return 1;
         }
 
-        // HEADER
+        // ---------------- HEADER ----------------
 
         AIMFHeader header;
 
@@ -90,7 +90,7 @@ int main(int argc, char** argv)
 
         out.write(reinterpret_cast<char*>(&header), sizeof(header));
 
-        // STREAM TABLE
+        // ---------------- STREAM TABLE ----------------
 
         StreamDesc streams[2];
 
@@ -110,18 +110,16 @@ int main(int argc, char** argv)
 
         write_stream_table(out, streams, 2);
 
-        // METADATA STREAM
+        // ---------------- METADATA STREAM ----------------
 
         auto metadata = encode_metadata("example", chunks.size());
-
-        uint64_t meta_offset = out.tellp();
 
         uint32_t meta_size = metadata.size();
 
         out.write(reinterpret_cast<char*>(&meta_size), sizeof(meta_size));
         out.write(reinterpret_cast<char*>(metadata.data()), meta_size);
 
-        // VIDEO TOKEN CHUNKS
+        // ---------------- VIDEO CHUNKS ----------------
 
         std::vector<ChunkIndexEntry> index;
 
@@ -129,22 +127,49 @@ int main(int argc, char** argv)
         {
             uint64_t chunk_offset = out.tellp();
 
-            write_chunk(out, 0, i * 1000000, chunks[i], true);
+            uint32_t chunk_size =
+                write_chunk(out, 0, i * 1000000, chunks[i], true);
 
             ChunkIndexEntry entry;
 
             entry.stream_id = 0;
             entry.timestamp_us = i * 1000000;
             entry.file_offset = chunk_offset;
+            entry.chunk_size = chunk_size;
 
             index.push_back(entry);
         }
 
-        // INDEX
+        // ---------------- STREAM-AWARE INDEX ----------------
 
         uint64_t index_offset = out.tellp();
 
-        write_chunk_index(out, index);
+        uint32_t stream_count = header.stream_count;
+
+        out.write(reinterpret_cast<char*>(&stream_count), sizeof(stream_count));
+
+        for (uint32_t i = 0; i < stream_count; i++)
+        {
+            StreamIndex si;
+
+            si.stream_id = i;
+
+            if (i == 0)
+                si.entry_count = index.size();
+            else
+                si.entry_count = 0;
+
+            out.write(reinterpret_cast<char*>(&si), sizeof(si));
+        }
+
+        uint32_t index_count = index.size();
+
+        out.write(reinterpret_cast<char*>(&index_count), sizeof(index_count));
+
+        for (auto &entry : index)
+        {
+            out.write(reinterpret_cast<char*>(&entry), sizeof(entry));
+        }
 
         header.index_offset = index_offset;
 
@@ -176,7 +201,7 @@ int main(int argc, char** argv)
 
         in.read(reinterpret_cast<char*>(&header), sizeof(header));
 
-        // STREAM TABLE
+        // ---------------- STREAM TABLE ----------------
 
         in.seekg(header.stream_table_offset);
 
@@ -189,7 +214,7 @@ int main(int argc, char** argv)
 
         StreamDesc& video_stream = streams[0];
 
-        // METADATA
+        // ---------------- METADATA ----------------
 
         uint32_t meta_size;
 
@@ -207,9 +232,22 @@ int main(int argc, char** argv)
             return 1;
         }
 
-        // INDEX
+        // ---------------- STREAM INDEX TABLE ----------------
 
         in.seekg(header.index_offset);
+
+        uint32_t stream_count;
+
+        in.read(reinterpret_cast<char*>(&stream_count), sizeof(stream_count));
+
+        std::vector<StreamIndex> stream_index(stream_count);
+
+        for (uint32_t i = 0; i < stream_count; i++)
+        {
+            in.read(reinterpret_cast<char*>(&stream_index[i]), sizeof(StreamIndex));
+        }
+
+        // ---------------- CHUNK INDEX ----------------
 
         uint32_t index_count;
 
@@ -226,6 +264,9 @@ int main(int argc, char** argv)
 
         for (auto& entry : index)
         {
+            if (entry.stream_id != 0)
+                continue;
+
             in.seekg(entry.file_offset);
 
             ChunkHeader ch;
